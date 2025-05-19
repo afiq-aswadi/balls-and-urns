@@ -10,6 +10,21 @@ from utils import calculate_posterior_mean, get_kl_divergence, get_incremental_l
 DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
 
+def plot_beta_distribution(alpha, beta):
+    """
+    Plot the Beta distribution for given alpha and beta parameters.
+    """
+    x = np.linspace(0, 1, 1000)
+    y = (x ** (alpha - 1)) * ((1 - x) ** (beta - 1))
+    y /= np.trapezoid(y, x)  # Normalize the distribution
+    plt.plot(x, y)
+    plt.title(f'Beta Distribution (α={alpha}, β={beta})')
+    plt.xlabel('x')
+    plt.ylabel('Density')
+    plt.grid(True)
+    plt.show()
+
+
 def plot_proportional_log_odds(theta,
                                model,
                                seq_length=100,

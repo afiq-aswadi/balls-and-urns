@@ -19,7 +19,7 @@ coinformer_model_config = transformer_lens.HookedTransformerConfig(
     n_ctx=100,
     d_vocab=2,
     act_fn="relu",
-    default_prepend_bos=False
+    default_prepend_bos=False,
 )
 
 def deactivate_position(model):

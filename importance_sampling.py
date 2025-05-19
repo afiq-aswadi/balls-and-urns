@@ -10,28 +10,50 @@ from utils import calculate_posterior_mean, get_log_loss, get_kl_divergence
 from samplers import generate_data_with_p, generate_data_with_p_list
 import os
 
-alpha = 1
-beta = 8
+alpha = 1.0
+beta = 8.0
 #%%
 # uniform_transformer = HookedTransformer(coinformer_model_config)
-uniform_transformer = HookedTransformer(coinformer_model_attn_only_config)
+uniform_transformer_no_importance = HookedTransformer(coinformer_model_config)
+uniform_transformer_importance = HookedTransformer(coinformer_model_config)
 
 
-losses = train_coinformer_model(
-    model=uniform_transformer,
+losses_no_importance = train_coinformer_model(
+    model=uniform_transformer_no_importance,
     num_epochs=10,
     learning_rate=0.001,
     batch_size=64,
     seq_length=100,
-    num_batches=1000,
-    alpha=alpha,
-    beta=beta,
+    num_batches=10000,
+    alpha_param=alpha,
+    beta_param=beta,
     bernoulli=False,  # Set to False for uniform distribution
     bernoulli_p=None,  # No need for this parameter
     pos_embed=True,  # Activate positional embedding
     flip_batch=False,
     scale=1.0,
     bias=0.0,
+    importance_sampling=False,
+)
+
+losses_importance = train_coinformer_model(
+    model=uniform_transformer_importance,
+    num_epochs=10,
+    learning_rate=0.001,
+    batch_size=64,
+    seq_length=100,
+    num_batches=10000,
+    alpha_param=1,
+    beta_param=1,
+    bernoulli=False,  # Set to False for uniform distribution
+    bernoulli_p=None,  # No need for this parameter
+    pos_embed=True,  # Activate positional embedding
+    flip_batch=False,
+    scale=1.0,
+    bias=0.0,
+    importance_sampling=True,
+    importance_sampling_alpha=alpha,
+    importance_sampling_beta=beta,
 )
 
 #%%
@@ -47,7 +69,7 @@ test_data, priors = generate_data_with_p_list(thetas,
 
 pu.plot_probability_diff_surface(
     theta_values=thetas,
-    model=uniform_transformer,
+    model=uniform_transformer_no_importance,
     seq_length=100,
     batch_size=32,
     alpha0=alpha,
@@ -57,7 +79,7 @@ pu.plot_probability_diff_surface(
 
 pu.plot_probability_diff(
     theta=0.5,
-    model=uniform_transformer,
+    model=uniform_transformer_no_importance,
     seq_length=100,
     batch_size=32,
     alpha0=alpha,
@@ -65,10 +87,35 @@ pu.plot_probability_diff(
     norm='abs',
     data=test_data[4]
 )
+
+#%%
+
+pu.plot_probability_diff_surface(
+    theta_values=thetas,
+    model=uniform_transformer_importance,
+    seq_length=100,
+    batch_size=32,
+    alpha0=alpha,
+    beta0=beta,
+    data_list=test_data
+)
+
+pu.plot_probability_diff(
+    theta=0.5,
+    model=uniform_transformer_importance,
+    seq_length=100,
+    batch_size=32,
+    alpha0=alpha,
+    beta0=beta,
+    norm='abs',
+    data=test_data[4]
+)
+
+
 # %%
 pu.plot_kl_divergence(
     theta=0.5,
-    model=uniform_transformer,
+    model=uniform_transformer_no_importance,
     seq_length=100,
     batch_size=32,
     alpha0=alpha,
@@ -78,7 +125,28 @@ pu.plot_kl_divergence(
 
 pu.plot_kl_divergence_surface(
     theta_values=thetas,
-    model=uniform_transformer,
+    model=uniform_transformer_no_importance,
+    seq_length=20,
+    batch_size=32,
+    alpha0=alpha,
+    beta0=beta,
+    data_list=test_data
+)
+
+#%%
+pu.plot_kl_divergence(
+    theta=0.5,
+    model=uniform_transformer_importance,
+    seq_length=100,
+    batch_size=32,
+    alpha0=alpha,
+    beta0=beta,
+    data=test_data[4]
+)
+
+pu.plot_kl_divergence_surface(
+    theta_values=thetas,
+    model=uniform_transformer_importance,
     seq_length=20,
     batch_size=32,
     alpha0=alpha,
@@ -87,9 +155,10 @@ pu.plot_kl_divergence_surface(
 )
 
 
+
 #%%
 trans_log_loss, bayes_log_loss = get_log_loss(
-    model=uniform_transformer,
+    model=uniform_transformer_no_importance,
     seq_length=100,
     batch_size=32,
     alpha0=alpha,

@@ -3,6 +3,9 @@ import torch.optim as optim
 from tqdm import tqdm
 import torch.nn as nn
 import matplotlib.pyplot as plt
+from scipy.stats import beta
+
+
 from utils import analyze_single_one_sequences
 from samplers import generate_data
 from model import deactivate_position
@@ -18,15 +21,18 @@ def train_coinformer_model(model,
                            batch_size: int = 64,
                            seq_length: int = 20,
                            num_batches: int = 100,
-                           alpha: float = 1.0,
-                           beta: float = 1.0,
+                           alpha_param: float = 1.0,
+                           beta_param: float = 1.0,
                            bernoulli: bool = False,
                            bernoulli_p: float = 0.5,
                            flip_batch: bool = False,
                            pos_embed: bool = True,
                            add_zeros_and_ones: int = 0,
                            scale: float = 1.0,
-                           bias: float = 0.0):
+                           bias: float = 0.0,
+                           importance_sampling: bool = False,
+                           importance_sampling_alpha: float = 1.0,
+                           importance_sampling_beta: float = 1.0):
     """Train the Coinformer model."""
     
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -41,7 +47,7 @@ def train_coinformer_model(model,
     for epoch in range(num_epochs):
         # Generate new data for each epoch
         datasets, priors = generate_data(batch_size=batch_size, seq_length=seq_length, 
-                                   num_batches=num_batches, alpha=alpha, beta=beta, bernoulli=bernoulli, bernoulli_p=bernoulli_p, flip_batch=flip_batch
+                                   num_batches=num_batches, alpha=alpha_param, beta=beta_param, bernoulli=bernoulli, bernoulli_p=bernoulli_p, flip_batch=flip_batch
                                    , scale=scale, bias=bias)
 
         # Add the specified number of batches of all 0s and all 1s
@@ -62,9 +68,12 @@ def train_coinformer_model(model,
         # plt.ylabel('Frequency')
         # plt.grid(True, alpha=0.3)
         # plt.show()
-        optimal_loss = calculate_optimal_loss(alpha,beta)
+        if importance_sampling:
+            optimal_loss = calculate_optimal_loss(importance_sampling_alpha, importance_sampling_beta)
+        else:
+            optimal_loss = calculate_optimal_loss(alpha_param, beta_param)
 
-        for data_batch in tqdm(datasets, desc=f"Epoch {epoch+1}/{num_epochs}"):
+        for data_batch, prior in tqdm(zip(datasets, priors), desc=f"Epoch {epoch+1}/{num_epochs}"):
             batch_size, seq_length = data_batch.shape
             data_batch = data_batch.to(DEVICE)
             # For each sequence, use all tokens except the last one as input
@@ -82,6 +91,10 @@ def train_coinformer_model(model,
             
             # Calculate loss
             loss = criterion(logits_view, targets_view)
+            if importance_sampling:
+                weights = beta(importance_sampling_alpha, importance_sampling_beta).pdf(prior)
+                loss = loss * weights
+
             epoch_loss += loss.item()
             
             # Backward pass and optimize
