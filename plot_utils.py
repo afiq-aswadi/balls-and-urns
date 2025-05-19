@@ -7,8 +7,9 @@ import plotly.graph_objects as go
 from samplers import generate_data_with_p
 from utils import calculate_posterior_mean, get_kl_divergence, get_incremental_log_odds
 
-DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
+#TODO: turn this into a class so i can just do a single call to plot all the things
 
 def plot_beta_distribution(alpha, beta):
     """
