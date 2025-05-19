@@ -63,6 +63,7 @@ def calculate_optimal_loss(alpha=1.0, beta=1.0):
     return optimal_loss
 
 def count_ones_and_zeros(sequence):
+    #TODO: fix
     """
     Count the number of 1s and 0s in a binary sequence.
     

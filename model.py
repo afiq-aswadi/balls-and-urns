@@ -7,10 +7,9 @@ coinformer_model_attn_only_config = transformer_lens.HookedTransformerConfig(
     n_ctx=100,
     d_vocab=2,
     default_prepend_bos=False,
-    attn_only=True
+    attn_only=True,
+    normalization_type=None,
 )
-
-
 
 coinformer_model_config = transformer_lens.HookedTransformerConfig(
     d_model=64, #embedding dimension

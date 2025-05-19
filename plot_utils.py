@@ -11,6 +11,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.ba
 
 #TODO: turn this into a class so i can just do a single call to plot all the things
 
+
 def plot_beta_distribution(alpha, beta):
     """
     Plot the Beta distribution for given alpha and beta parameters.

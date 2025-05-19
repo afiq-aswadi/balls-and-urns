@@ -14,16 +14,34 @@ import os
 alpha = 1.0
 beta = 1.0
 #%%
-# uniform_transformer = HookedTransformer(coinformer_model_config)
-uniform_transformer = HookedTransformer(coinformer_model_attn_only_config)
+uniform_transformer = HookedTransformer(coinformer_model_config)
+uniform_transformer_attn_only = HookedTransformer(coinformer_model_attn_only_config)
 
-losses_no_importance = train_coinformer_model(
-    model=uniform_transformer,
-    num_epochs=10,
+# losses_two_layer = train_coinformer_model(
+#     model=uniform_transformer,
+#     num_epochs=5,
+#     learning_rate=0.001,
+#     batch_size=64,
+#     seq_length=100,
+#     num_batches=100,
+#     alpha_param=alpha,
+#     beta_param=beta,
+#     bernoulli=False,  # Set to False for uniform distribution
+#     bernoulli_p=None,  # No need for this parameter
+#     pos_embed=True,  # Activate positional embedding
+#     flip_batch=False,
+#     scale=1.0,
+#     bias=0.0,
+#     importance_sampling=False,
+# )
+
+losses_attn_only = train_coinformer_model(
+    model=uniform_transformer_attn_only,
+    num_epochs=5,
     learning_rate=0.001,
     batch_size=64,
     seq_length=100,
-    num_batches=1000,
+    num_batches=10000,
     alpha_param=alpha,
     beta_param=beta,
     bernoulli=False,  # Set to False for uniform distribution
@@ -88,6 +106,30 @@ pu.plot_kl_divergence_surface(
     data_list=test_data
 )
 
+#%%
+
+pu.plot_kl_divergence(
+    theta=0.5,
+    model=uniform_transformer_attn_only,
+    seq_length=100,
+    batch_size=32,
+    alpha0=alpha,
+    beta0=beta,
+    data=test_data[4]
+)
+
+
+pu.plot_kl_divergence_surface(
+    theta_values=thetas,
+    model=uniform_transformer_attn_only,
+    seq_length=20,
+    batch_size=32,
+    alpha0=alpha,
+    beta0=beta,
+    data_list=test_data
+)
+
+
 
 #%%
 trans_log_loss, bayes_log_loss = get_log_loss(
@@ -115,7 +157,7 @@ os.makedirs(save_dir, exist_ok=True)
 
 # Save the model's state dictionary
 save_path = os.path.join(save_dir, f"uniform_coinformer_alpha{alpha}_beta{beta}.pt")
-torch.save(uniform_transformer.state_dict(), save_path)
+torch.save(uniform_transformer_attn_only.state_dict(), save_path)
 
 print(f"Model saved to {save_path}")
 
