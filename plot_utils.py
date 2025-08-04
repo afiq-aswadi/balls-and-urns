@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
 from samplers import generate_data_with_p
-from utils import calculate_posterior_mean, get_kl_divergence, get_incremental_log_odds
+from utils import calculate_posterior_mean, get_kl_divergence, get_incremental_log_odds, get_residual_cosine_similarity
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
@@ -814,3 +814,72 @@ def visualize_attention_patterns(theta, model, seq_length=100, data=None):
             
         layer_fig.suptitle(f"Attention Pattern for sequence sampled from probability {name}, layer {layer_idx}", fontsize=16)
         plt.show()
+
+def plot_log_odds_vs_theoretical_log(log_odds: torch.Tensor, theoretical_log: torch.Tensor, title: str = 'Log odds vs Theoretical log(i+2)'):
+    """
+    Plot log odds vs theoretical log values.
+
+    Args:
+        log_odds: Tensor of log odds values.
+        theoretical_log: Tensor of theoretical log values.
+        title: Title for the plot.
+    """
+    plt.figure(figsize=(8, 5))
+    plt.plot(log_odds.cpu().detach().numpy(), marker='o', label='Log odds')
+    plt.plot(theoretical_log.cpu().detach().numpy(), marker='x', linestyle='--', label='Theoretical log(i+2)')
+    plt.xlabel('Position')
+    plt.ylabel('Value')
+    plt.title(title)
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+
+def plot_probability_distribution(probabilities: torch.Tensor, theoretical_p: float, title: str = 'Distribution of Probabilities for Class 1'):
+    """
+    Plot the distribution of probabilities with vertical lines for theoretical and mean probability.
+
+    Args:
+        probabilities: Tensor of probabilities for class 1.
+        theoretical_p: Theoretical probability value to plot as a vertical line.
+        title: Title for the plot.
+    """
+
+    prob_np = probabilities.cpu().detach().numpy()
+    plt.figure(figsize=(8, 5))
+    plt.hist(prob_np, bins=30, alpha=0.7, color='blue')
+    plt.axvline(theoretical_p, color='red', linestyle='dashed', linewidth=2, label=f'Theoretical p = {theoretical_p:.3f}')
+    plt.axvline(prob_np.mean(), color='green', linestyle='dashed', linewidth=2, label=f'Mean prob = {prob_np.mean():.3f}')
+    plt.xlabel('Probability of Class 1')
+    plt.ylabel('Count')
+    plt.title(title)
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+def plot_residual_cosine_similarity(seq_length, num_ones, resids, print_stats=True):
+    """
+    Plots the cosine similarity matrix of the given residual vectors.
+    Args:
+        seq_length: Length of sequences
+        num_ones: Number of ones in sequences
+        resids (torch.Tensor or np.ndarray): Residual vectors of shape (num_sequences, d_model)
+        print_stats (bool): Whether to print statistics about the similarity matrix
+    
+    Returns:
+        np.ndarray: Cosine similarity matrix
+    """
+    # Use the utility function to calculate the cosine similarity matrix
+    cos_sim_matrix = get_residual_cosine_similarity(resids, print_stats=print_stats)
+
+    # Create the plot
+    plt.figure(figsize=(8, 6))
+    plt.imshow(cos_sim_matrix, cmap='viridis', aspect='auto')
+    plt.colorbar(label='Cosine Similarity')
+    plt.title(f"Cosine Similarity of Residual Vectors (Seq Length: {seq_length}, Num Ones: {num_ones})")
+    plt.xlabel("Sequence Index")
+    plt.ylabel("Sequence Index")
+    plt.tight_layout()
+    plt.show()
+
+    return cos_sim_matrix

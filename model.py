@@ -8,7 +8,7 @@ coinformer_model_attn_only_config = transformer_lens.HookedTransformerConfig(
     d_vocab=2,
     default_prepend_bos=False,
     attn_only=True,
-    normalization_type=None,
+    normalization_type=None
 )
 
 coinformer_model_config = transformer_lens.HookedTransformerConfig(
@@ -19,6 +19,7 @@ coinformer_model_config = transformer_lens.HookedTransformerConfig(
     d_vocab=2,
     act_fn="relu",
     default_prepend_bos=False,
+    normalization_type=None,
 )
 
 def deactivate_position(model):

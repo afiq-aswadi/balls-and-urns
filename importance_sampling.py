@@ -17,7 +17,6 @@ beta = 8.0
 uniform_transformer_no_importance = HookedTransformer(coinformer_model_config)
 uniform_transformer_importance = HookedTransformer(coinformer_model_config)
 
-
 losses_no_importance = train_coinformer_model(
     model=uniform_transformer_no_importance,
     num_epochs=10,

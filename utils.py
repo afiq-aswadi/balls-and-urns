@@ -1,10 +1,106 @@
 import torch
 import matplotlib.pyplot as plt
 from scipy import special
-from samplers import generate_data_with_p
 import numpy as np
+from torch.nn.functional import cosine_similarity
+from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine_similarity
+from samplers import generate_data_with_p, generate_sequential_ones
 
 DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+
+def flip_batch(data):
+    """
+    Flip the batch of data.
+    
+    Args:
+        data (torch.Tensor): Input data tensor.
+        
+    Returns:
+        torch.Tensor: Flipped data tensor.
+    """
+    flipped_data = 1 - data
+    return flipped_data
+
+
+def get_mean_residuals(model, test_seq):
+    """
+    Get the mean residuals for the last token in the sequence.
+    
+    Args:
+        model: The transformer model
+        test_seq: The input sequence
+        
+    Returns:
+        torch.Tensor: Mean residuals for the last token
+    """
+    _, cache = model.run_with_cache(test_seq)
+    residuals = cache["resid_post",1]  # shape: (n_permutations, seq_len, d_model)
+    residuals_last = residuals[:,-1,:]  # shape: (n_permutations, d_model)
+    mean_residual = torch.mean(residuals_last, dim=0)  # shape: (d_model)
+    return mean_residual
+
+
+def get_log_resids_from_sequential_zeros(model, n):
+    seq_zeros = torch.zeros((1, n), dtype=torch.long, device=DEVICE)
+    logits, cache = model.run_with_cache(seq_zeros)
+    return logits, cache["resid_post", -1].squeeze()  # shape: (seq_len+1, d_model)
+
+def get_log_resids_from_sequential_ones(model, n):
+    """
+    Get the log vector for the last token in the sequence.
+    
+    Args:
+        model: The transformer model
+        
+    Returns:
+        torch.Tensor: Log vector for the last token
+    """
+    #todo: add the sequence with no ones
+    seq_ones = generate_sequential_ones(n)
+    logits, cache = model.run_with_cache(seq_ones[0])
+    residuals = cache["resid_post",-1]  # shape: (seq_len+1, d_model)
+    
+    ith_logit = torch.zeros((n, 2))
+    ith_residuals = torch.zeros((n, model.cfg.d_model))
+
+    for i in range(n):
+        ith_logit[i] = logits[i,i,:]
+        ith_residuals[i] = residuals[i,i,:]
+
+    return ith_logit, ith_residuals
+
+def get_theoretical_log(n):
+    """
+    Get the theoretical log vector for the last token in the sequence.
+    
+    Args:
+        n: Length of the sequence
+        
+    Returns:
+        torch.Tensor: Theoretical log vector for the last token
+    """
+    theoretical_log = torch.zeros(n)
+    for i in range(n):
+        theoretical_log[i] = torch.log(torch.tensor(i+2))
+    return theoretical_log
+
+def get_cosine_similarity(mean_residual, log_residuals, num_ones, sequence_length):
+    """
+    Get the cosine similarity between the mean residual and the log residuals.
+    
+    Args:
+        mean_residual: Mean residuals for the last token
+        log_residuals: Log residuals for the last token
+        num_ones: Number of ones in the sequence
+        sequence_length: Length of the sequence
+    """
+    diff_vec = log_residuals[num_ones-1] - log_residuals[sequence_length - num_ones - 1]
+    diff_vec = diff_vec.cpu().detach()
+    
+    similarity = cosine_similarity(diff_vec.unsqueeze(0), mean_residual.unsqueeze(0), dim=-1)
+    print(f"Cosine similarity between diff_vec and mean_residual: {similarity.item()}")
+    return similarity       
+
 
 
 def calculate_posterior_mean(dataset, alpha=1.0, beta=1.0):
@@ -377,3 +473,39 @@ def get_kl_divergence(model,
         kl_divs.append(avg_kl)
         
     return kl_divs, positions
+
+def get_residual_cosine_similarity(resids, print_stats=True):
+    """
+    Calculate the cosine similarity matrix of the given residual vectors.
+    
+    Args:
+        resids (torch.Tensor or np.ndarray): Residual vectors of shape (num_sequences, d_model)
+        print_stats (bool): Whether to print statistics about the similarity matrix
+        
+    Returns:
+        np.ndarray: Cosine similarity matrix
+    """
+    # Convert to numpy if needed
+    if isinstance(resids, torch.Tensor):
+        resids_np = resids.cpu().numpy()
+    else:
+        resids_np = resids
+    
+    # Calculate cosine similarity matrix
+    cos_sim_matrix = sklearn_cosine_similarity(resids_np)
+    
+    if print_stats:
+        # Extract lower triangular part, excluding the diagonal
+        lower_tri_indices = np.tril_indices_from(cos_sim_matrix, k=-1)
+        lower_tri_values = cos_sim_matrix[lower_tri_indices]
+
+        print("Cosine Similarity Stats (Lower Triangular, excluding diagonal):")
+        if lower_tri_values.size > 0:
+            print(f"  Mean: {lower_tri_values.mean():.4f}")
+            print(f"  Std: {lower_tri_values.std():.4f}")
+            print(f"  Max: {lower_tri_values.max():.4f}")
+            print(f"  Min: {lower_tri_values.min():.4f}")
+        else:
+            print("  Not enough elements for statistics (matrix too small or only diagonal elements).")
+    
+    return cos_sim_matrix

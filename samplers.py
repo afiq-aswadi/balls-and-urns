@@ -1,4 +1,5 @@
 import torch
+import itertools
 
 def sample_from_beta(alpha=1.0, beta=1.0):
     """
@@ -150,3 +151,53 @@ def generate_data(batch_size=64, seq_length=20, num_batches=100, alpha=1.0, beta
             priors.append(1 - (scale*p + bias))  # Add 1-p for the flipped batch
     print(f"Probability range: [{min(priors):.3f}, {max(priors):.3f}]")
     return datasets, priors
+
+
+
+def generate_sequential_ones(n: int, add_zero: bool = False) -> torch.Tensor:
+    """
+    Generate a sequence of ones followed by zeros.
+    
+    Args:
+        n: Length of the sequence
+        add_zero: If True, prepend a row of zeros to the output (default: False)
+        
+    Returns:
+        torch.Tensor: Tensor of shape (n+1, n) if add_zero else (n, n) containing the sequence
+    """
+    mat = torch.tril(torch.ones((n, n), dtype=torch.long)).unsqueeze(0)
+    if add_zero:
+        mat = torch.cat((torch.zeros((1, n), dtype=torch.long), mat), dim=1)
+
+    return mat
+
+
+def generate_all_binary_sequences_with_fixed_num_ones(n: int, num_ones: int, max_n_sequences: int = None) -> torch.Tensor:
+    """
+    Generate all possible binary sequences of length n with exactly num_ones ones.
+    If max_n_sequences is specified, only generate up to that many sequences.
+    
+    Args:
+        n: Length of the sequence
+        num_ones: Number of ones in each sequence
+        max_n_sequences: Maximum number of sequences to generate (optional)
+        
+    Returns:
+        torch.Tensor: Tensor of shape (num_permutations, n) containing all permutations
+    """
+    # Generate all combinations of positions for the ones
+    positions_iter = itertools.combinations(range(n), num_ones)
+    if max_n_sequences is not None:
+        positions_iter = itertools.islice(positions_iter, max_n_sequences)
+    positions_list = list(positions_iter)
+    num_permutations = len(positions_list)
+    
+    # Initialize the output tensor
+    sequences = torch.zeros((num_permutations, n), dtype=torch.long)
+    
+    # Fill in the tensor with 1s at the appropriate positions
+    for i, positions in enumerate(positions_list):
+        for pos in positions:
+            sequences[i, pos] = 1
+    
+    return sequences
