@@ -165,10 +165,9 @@ def generate_sequential_ones(n: int, add_zero: bool = False) -> torch.Tensor:
     Returns:
         torch.Tensor: Tensor of shape (n+1, n) if add_zero else (n, n) containing the sequence
     """
-    mat = torch.tril(torch.ones((n, n), dtype=torch.long)).unsqueeze(0)
+    mat = torch.tril(torch.ones((n, n), dtype=torch.long))
     if add_zero:
-        mat = torch.cat((torch.zeros((1, n), dtype=torch.long), mat), dim=1)
-
+        mat = torch.cat((torch.zeros((1, n), dtype=torch.long), mat), dim=0)
     return mat
 
 

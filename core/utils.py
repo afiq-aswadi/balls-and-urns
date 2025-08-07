@@ -4,7 +4,7 @@ from scipy import special
 import numpy as np
 from torch.nn.functional import cosine_similarity
 from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine_similarity
-from samplers import generate_data_with_p, generate_sequential_ones
+from .samplers import generate_data_with_p, generate_sequential_ones
 
 DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 

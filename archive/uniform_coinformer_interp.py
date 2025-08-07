@@ -27,42 +27,8 @@ print("Model weights loaded successfully.")
 num_ones = 5
 n = 20
 
-def generate_all_binary_sequences_with_fixed_num_ones(n: int, num_ones: int) -> torch.Tensor:
-    """
-    Generate all possible binary sequences of length n with exactly num_ones ones.
-    
-    Args:
-        n: Length of the sequence
-        num_ones: Number of ones in each sequence
-        
-    Returns:
-        torch.Tensor: Tensor of shape (num_permutations, n) containing all permutations
-    """
-    # Generate all combinations of positions for the ones
-    positions_list = list(itertools.combinations(range(n), num_ones))
-    num_permutations = len(positions_list)
-    
-    # Initialize the output tensor
-    sequences = torch.zeros((num_permutations, n), dtype=torch.long)
-    
-    # Fill in the tensor with 1s at the appropriate positions
-    for i, positions in enumerate(positions_list):
-        for pos in positions:
-            sequences[i, pos] = 1
-    
-    return sequences
-
-def generate_sequential_ones(n: int) -> torch.Tensor:
-    """
-    Generate a sequence of ones followed by zeros.
-    
-    Args:
-        n: Length of the sequence
-        
-    Returns:
-        torch.Tensor: Tensor of shape (1, n) containing the sequence
-    """
-    return torch.tril(torch.ones((n, n), dtype=torch.long)).unsqueeze(0)
+# Import from core.samplers to avoid duplication
+from core.samplers import generate_all_binary_sequences_with_fixed_num_ones, generate_sequential_ones
 
 
 test_seq = generate_all_binary_sequences_with_fixed_num_ones(n, num_ones)
