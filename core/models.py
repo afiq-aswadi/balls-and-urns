@@ -5,6 +5,23 @@ import torch
 import transformer_lens
 from dataclasses import dataclass
 from typing import Optional
+from enum import Enum
+import math
+
+
+class PosEmbedType(Enum):
+    """Types of positional embeddings."""
+    LEARNED = "learned"      # default trainable embeddings
+    LINEAR = "linear"        # linear function of position (i/n_ctx)
+    LOG = "log"             # logarithmic function of position
+
+
+@dataclass
+class PosEmbedConfig:
+    """Configuration for positional embeddings."""
+    type: PosEmbedType = PosEmbedType.LEARNED
+    trainable: bool = True  # whether to compute gradients
+    scale: float = 1.0      # scaling factor for deterministic embeddings
 
 
 @dataclass
@@ -22,10 +39,14 @@ class ModelConfig:
     
     # Vocabulary and embedding options
     use_bos_token: bool = False  # If True, d_vocab=3 (BOS,0,1); if False, d_vocab=2 (0,1)
-    use_pos_embed: bool = True
+    pos_embed_config: Optional[PosEmbedConfig] = None  # None means no pos embeds
     
     # Normalization
     normalization_type: Optional[str] = None
+    
+    def __post_init__(self):
+        if self.pos_embed_config is None:
+            self.pos_embed_config = PosEmbedConfig()  # Default to learned embeddings
     
     @property
     def d_vocab(self) -> int:
@@ -66,7 +87,7 @@ SMALL_D_HEAD_CONFIG = ModelConfig(d_model=64, d_head=16)
 
 # BOS token configurations
 BOS_TOKEN_CONFIG = ModelConfig(use_bos_token=True)
-NO_POS_EMBED_CONFIG = ModelConfig(use_pos_embed=False)
+NO_POS_EMBED_CONFIG = ModelConfig(pos_embed_config=None)
 
 
 def create_coinformer_model(config: ModelConfig) -> transformer_lens.HookedTransformer:
@@ -82,9 +103,17 @@ def create_coinformer_model(config: ModelConfig) -> transformer_lens.HookedTrans
     tl_config = config.to_transformer_lens_config()
     model = transformer_lens.HookedTransformer(tl_config)
     
-    # Deactivate positional embedding if specified
-    if not config.use_pos_embed:
+    # Handle positional embeddings based on configuration
+    if config.pos_embed_config is None:
+        # No positional embeddings
         deactivate_positional_embedding(model)
+    elif config.pos_embed_config.type == PosEmbedType.LINEAR:
+        set_linear_positional_embedding(model, config.pos_embed_config)
+    elif config.pos_embed_config.type == PosEmbedType.LOG:
+        set_log_positional_embedding(model, config.pos_embed_config)
+    elif config.pos_embed_config.type == PosEmbedType.LEARNED:
+        # Default learned embeddings, just set trainability
+        model.pos_embed.W_pos.requires_grad = config.pos_embed_config.trainable
     
     return model
 
@@ -96,6 +125,74 @@ def deactivate_positional_embedding(model: transformer_lens.HookedTransformer) -
     """
     model.pos_embed.W_pos.data.fill_(0.0)
     model.pos_embed.W_pos.requires_grad = False
+    return model
+
+
+def set_linear_positional_embedding(model: transformer_lens.HookedTransformer, config: PosEmbedConfig) -> transformer_lens.HookedTransformer:
+    """
+    Set linear positional embeddings in the last dimension.
+    Position i gets value (i / n_ctx) * scale in the last dimension.
+    All other dimensions are set to 0.
+    """
+    n_ctx = model.cfg.n_ctx
+    
+    # Initialize all positional embeddings to zero
+    model.pos_embed.W_pos.data.fill_(0.0)
+    
+    # Set the last dimension to linear function of position
+    for pos in range(n_ctx):
+        model.pos_embed.W_pos.data[pos, -1] = (pos / n_ctx) * config.scale
+    
+    # Set trainability
+    model.pos_embed.W_pos.requires_grad = config.trainable
+    
+    return model
+
+
+def set_log_positional_embedding(model: transformer_lens.HookedTransformer, config: PosEmbedConfig) -> transformer_lens.HookedTransformer:
+    """
+    Set logarithmic positional embeddings in the last dimension.
+    Position i gets value log((i+1) / (n_ctx+1)) * scale in the last dimension.
+    All other dimensions are set to 0.
+    """
+    n_ctx = model.cfg.n_ctx
+    
+    # Initialize all positional embeddings to zero
+    model.pos_embed.W_pos.data.fill_(0.0)
+    
+    # Set the last dimension to log function of position
+    for pos in range(n_ctx):
+        # Use (pos+1) to avoid log(0), normalize to [0,1] range approximately
+        normalized_pos = (pos + 1) / (n_ctx + 1)
+        model.pos_embed.W_pos.data[pos, -1] = math.log(normalized_pos) * config.scale
+    
+    # Set trainability
+    model.pos_embed.W_pos.requires_grad = config.trainable
+    
+    return model
+
+
+def set_fixed_positional_embedding(model: transformer_lens.HookedTransformer) -> transformer_lens.HookedTransformer:
+    """
+    Set fixed positional embeddings that increment by 1 in the last dimension.
+    The positional embeddings are non-trainable (gradients switched off).
+    
+    For a model with d_model dimensions, only the last dimension is used for position,
+    with position 0 having value 0, position 1 having value 1, etc.
+    All other dimensions are set to 0.
+    """
+    n_ctx = model.cfg.n_ctx
+    
+    # Initialize all positional embeddings to zero
+    model.pos_embed.W_pos.data.fill_(0.0)
+    
+    # Set the last dimension to increment by position
+    for pos in range(n_ctx):
+        model.pos_embed.W_pos.data[pos, -1] = float(pos)
+    
+    # Turn off gradients for positional embeddings
+    model.pos_embed.W_pos.requires_grad = False
+    
     return model
 
 

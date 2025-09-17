@@ -116,7 +116,7 @@ BOS_BAYESIAN_CONFIG = ExperimentConfig(
 
 # No Positional Embedding Experiments
 NO_POS_CONFIG = ExperimentConfig(
-    model_config=ModelConfig(use_pos_embed=False),
+    model_config=ModelConfig(pos_embed_config=None),
     alpha=1.0,
     beta=1.0,
     num_epochs=5,

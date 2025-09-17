@@ -176,5 +176,10 @@ cython_debug/
 .pypirc
 
 # html plots
-
 *.html
+
+# results files
+*results*/
+results/
+*_results/
+sweep_results*/

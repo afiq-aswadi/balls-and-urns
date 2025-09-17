@@ -41,6 +41,16 @@ def get_mean_residuals(model, test_seq):
 
 
 def get_log_resids_from_sequential_zeros(model, n):
+    """
+    Get the log vector for the last token in the sequence.
+    
+    Args:
+        model: The transformer model
+        n: Length of the sequence
+        
+    Returns:
+        torch.Tensor: Log vector for the last token 
+    """
     seq_zeros = torch.zeros((1, n), dtype=torch.long, device=DEVICE)
     logits, cache = model.run_with_cache(seq_zeros)
     return logits, cache["resid_post", -1].squeeze()  # shape: (seq_len+1, d_model)

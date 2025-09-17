@@ -1,15 +1,10 @@
 #%%
 """
-Experiment 2: Dimension Bottleneck Analysis
+Experiment 5 Analysis: Fixed Positional Embedding Analysis
 
-This experiment loads models trained from dimension_sweep_training and analyzes
-how different architectural choices affect probability updating across sequences.
-Creates interactive plots showing probability evolution for different theta values.
-
-Configuration options:
-- USE_ALL_MODELS: Set to True to analyze all models in the directory, False to select best performing
-- NUM_SELECTED_MODELS: Number of models to select when USE_ALL_MODELS is False
-- SELECTION_CRITERION: Metric to use for model selection (default: 'log_loss_ratio_clean')
+This script analyzes the models trained with fixed positional embeddings from exp_05_fixed_pos_embed.py
+and creates interactive plots showing probability evolution for different theta values, following
+the same pattern as exp_02_dimension_bottleneck.py.
 """
 import sys
 import os
@@ -32,26 +27,16 @@ from core.utils import get_autoregressive_predictions
 LOAD_FROM_CSV = False  # Set to True to load existing CSV data instead of recomputing
 SKIP_MODEL_LOADING = False  # Set to True to skip model loading and just use CSV data for plots
 
-# USAGE MODES:
-# 1. Full computation: LOAD_FROM_CSV=False, SKIP_MODEL_LOADING=False (compute everything)
-# 2. Plot-only mode: LOAD_FROM_CSV=True, SKIP_MODEL_LOADING=True (fast plotting from CSV)
-# 3. Data-only mode: LOAD_FROM_CSV=False, SKIP_MODEL_LOADING=True (compute data, skip models)
-
-# Experiment configuration options (only used if LOAD_FROM_CSV is False)
-USE_ALL_MODELS = True  # Set to True to use all models, False to select best performing
-NUM_SELECTED_MODELS = 6  # Number of models to select if USE_ALL_MODELS is False
-SELECTION_CRITERION = 'log_loss_ratio_clean'  # Metric to use for model selection
-
-# Load the dimension sweep results
-SWEEP_RESULTS_DIR = "/Users/afiqabdillah/balls-and-urns/experiments/dimension_sweep_results_20250807_131232"
+# Load the fixed positional embedding results
+FIXED_POS_RESULTS_DIR = "/Users/afiqabdillah/balls-and-urns/experiments/fixed_pos_embed_results_20250107_124849"  # Update with actual timestamp
 
 if LOAD_FROM_CSV:
     print("=== Loading Data from CSV Files ===")
     # Load pre-computed data from CSV files
-    predictions_df = pd.read_csv(os.path.join(SWEEP_RESULTS_DIR, "dimension_bottleneck_predictions.csv"))
-    theoretical_df = pd.read_csv(os.path.join(SWEEP_RESULTS_DIR, "dimension_bottleneck_theoretical.csv"))
-    sequences_df = pd.read_csv(os.path.join(SWEEP_RESULTS_DIR, "dimension_bottleneck_sequences.csv"))
-    summary_df = pd.read_csv(os.path.join(SWEEP_RESULTS_DIR, "dimension_bottleneck_summary.csv"))
+    predictions_df = pd.read_csv(os.path.join(FIXED_POS_RESULTS_DIR, "fixed_pos_predictions.csv"))
+    theoretical_df = pd.read_csv(os.path.join(FIXED_POS_RESULTS_DIR, "fixed_pos_theoretical.csv"))
+    sequences_df = pd.read_csv(os.path.join(FIXED_POS_RESULTS_DIR, "fixed_pos_sequences.csv"))
+    summary_df = pd.read_csv(os.path.join(FIXED_POS_RESULTS_DIR, "fixed_pos_summary.csv"))
     
     # Parse the nested arrays from string format back to lists
     import ast
@@ -87,45 +72,58 @@ if LOAD_FROM_CSV:
     print(f"Loaded data for {len(theta_values)} theta values and {len(selected_models)} models")
     
 else:
-    # Original data loading and processing
-    evaluation_results = pd.read_csv(os.path.join(SWEEP_RESULTS_DIR, "evaluation_results.csv"))
-
-    # Clean up the tensor strings in the CSV to extract numerical values
+    # Load evaluation results and model directory
+    print("=== Loading Fixed Positional Embedding Results ===")
+    
+    # First, let's find the most recent results directory
+    results_base_dir = "/Users/afiqabdillah/balls-and-urns/experiments"
+    fixed_pos_dirs = [d for d in os.listdir(results_base_dir) if d.startswith("fixed_pos_embed_results_")]
+    
+    if not fixed_pos_dirs:
+        print("No fixed positional embedding results found. Please run exp_05_fixed_pos_embed.py first.")
+        sys.exit(1)
+    
+    # Use the most recent directory
+    FIXED_POS_RESULTS_DIR = os.path.join(results_base_dir, sorted(fixed_pos_dirs)[-1])
+    print(f"Using results from: {FIXED_POS_RESULTS_DIR}")
+    
+    # Load evaluation results
+    evaluation_results = pd.read_csv(os.path.join(FIXED_POS_RESULTS_DIR, "evaluation_results.csv"))
+    
+    # Clean up any tensor strings if they exist
     def extract_tensor_value(tensor_str):
         """Extract numerical value from tensor string format."""
         if "tensor(" in str(tensor_str):
-            # Extract number between tensor( and ,
             import re
             match = re.search(r'tensor\(([\d\.]+)', str(tensor_str))
             if match:
                 return float(match.group(1))
         return float(tensor_str)
+    
+    if 'log_loss_ratio' in evaluation_results.columns:
+        evaluation_results['log_loss_ratio_clean'] = evaluation_results['log_loss_ratio'].apply(extract_tensor_value)
+    else:
+        evaluation_results['log_loss_ratio_clean'] = evaluation_results['log_loss_ratio']
 
-    evaluation_results['log_loss_ratio_clean'] = evaluation_results['log_loss_ratio'].apply(extract_tensor_value)
-
-print("=== Dimension Bottleneck Analysis with Sweep Models ===")
+print("=== Fixed Positional Embedding Analysis ===")
 
 if not LOAD_FROM_CSV:
-    print(f"Found {len(evaluation_results)} trained models")
-    print(f"Results directory: {SWEEP_RESULTS_DIR}")
-
-    # Select models based on configuration
-    if USE_ALL_MODELS:
-        selected_models = evaluation_results
-        print(f"\nUsing ALL {len(selected_models)} models for analysis")
-    else:
-        selected_models = evaluation_results.nsmallest(NUM_SELECTED_MODELS, SELECTION_CRITERION)
-        print(f"\nSelected {len(selected_models)} best performing models (by {SELECTION_CRITERION}):")
+    print(f"Found {len(evaluation_results)} trained models with fixed positional embeddings")
+    print(f"Results directory: {FIXED_POS_RESULTS_DIR}")
+    
+    # Use all models for analysis
+    selected_models = evaluation_results
+    print(f"\nUsing ALL {len(selected_models)} models for analysis")
 else:
     print(f"Loaded data from CSV files")
-    print(f"Results directory: {SWEEP_RESULTS_DIR}")
+    print(f"Results directory: {FIXED_POS_RESULTS_DIR}")
 
-print(f"\nAnalyzing {len(selected_models)} models:")
+print(f"\nAnalyzing {len(selected_models)} models with fixed positional embeddings:")
 for _, row in selected_models.iterrows():
     config_col = 'config_name' if 'config_name' in row else 'model_name'
     print(f"  {row[config_col]}: d_model={row['d_model']}, d_head={row['d_head']}, d_mlp={row['d_mlp']}, ratio={row['log_loss_ratio_clean']:.4f}")
 
-#%% Load trained models from dimension sweep (only if needed)
+#%% Load trained models (only if needed)
 if not LOAD_FROM_CSV and not SKIP_MODEL_LOADING:
     models = {}
     model_configs = {}
@@ -138,12 +136,12 @@ if not LOAD_FROM_CSV and not SKIP_MODEL_LOADING:
             n_heads=int(row['n_heads']),
             d_mlp=int(row['d_mlp']),
             n_layers=int(row['n_layers']),
-            use_bos_token=True  # Models from dimension sweep were trained with BOS tokens
+            use_bos_token=True  # Models were trained with BOS tokens
         )
         
         return ExperimentConfig(
             model_config=model_config,
-            alpha=1.0,  # Default values from dimension sweep training
+            alpha=1.0,  # Default values from training
             beta=1.0,
             num_epochs=5,
             num_batches=1000,
@@ -152,7 +150,7 @@ if not LOAD_FROM_CSV and not SKIP_MODEL_LOADING:
             batch_size=64
         )
 
-    print("\n=== Loading Models ===")
+    print("\n=== Loading Models with Fixed Positional Embeddings ===")
     for _, row in selected_models.iterrows():
         config_name = row['config_name'] if 'config_name' in row else row['model_name']
         print(f"Loading {config_name}...")
@@ -162,20 +160,27 @@ if not LOAD_FROM_CSV and not SKIP_MODEL_LOADING:
         model_configs[config_name] = config
         
         # Construct model file path
-        model_filename = f"sweep_{config_name}_dmodel{row['d_model']}_dhead{row['d_head']}_layers{row['n_layers']}_alpha{config.alpha}_beta{config.beta}_bos.pt"
-        model_path = os.path.join(SWEEP_RESULTS_DIR, "models", model_filename)
+        model_filename = f"fixed_pos_{config_name}_dmodel{row['d_model']}_dhead{row['d_head']}_layers{row['n_layers']}_alpha{config.alpha}_beta{config.beta}_bos.pt"
+        model_path = os.path.join(FIXED_POS_RESULTS_DIR, "models", model_filename)
         
         if os.path.exists(model_path):
             try:
                 model = load_model_from_config(config, model_path)
                 models[config_name] = model
                 print(f"  Successfully loaded: {config_name}")
+                
+                # Verify that the model has fixed positional embeddings
+                print(f"  Positional embeddings require_grad: {model.pos_embed.W_pos.requires_grad}")
+                print(f"  Sample positional embeddings (first 3 positions, last dimension):")
+                for i in range(min(3, model.pos_embed.W_pos.shape[0])):
+                    print(f"    Position {i}, last dim: {model.pos_embed.W_pos[i, -1].item():.2f}")
+                    
             except Exception as e:
                 print(f"  Error loading {config_name}: {e}")
         else:
             print(f"  Model file not found: {model_filename}")
 
-    print(f"\nSuccessfully loaded {len(models)} models")
+    print(f"\nSuccessfully loaded {len(models)} models with fixed positional embeddings")
 else:
     # Create empty models dict for CSV mode or when skipping model loading
     models = {}
@@ -198,11 +203,8 @@ if not LOAD_FROM_CSV:
         return [data[0][i] for i in range(num_sequences)]
 
     # Generate test sequences for theta values from 0.0 to 1.0
-    # Include edge cases theta=0 and theta=1 where behavior is deterministic
     theta_values = np.concatenate([[0.0], np.arange(0.1, 1.0, 0.1), [1.0]])
-    # IMPORTANT: Models were trained with seq_length=99 + BOS token = 100 total tokens
-    # So we need to use seq_length=99 for testing to match training configuration
-    seq_length = 99
+    seq_length = 99  # Match training configuration
 
     print(f"\n=== Generating Test Sequences ===")
     print(f"Theta values: {theta_values}")
@@ -214,7 +216,6 @@ if not LOAD_FROM_CSV:
         print(f"Generating sequences for theta={theta:.1f}...")
         # For edge cases (theta=0 or theta=1), only generate one sequence since behavior is deterministic
         sequences_needed = 1 if theta in [0.0, 1.0] else num_sequences
-        # Models from dimension sweep were trained with BOS tokens
         all_sequences[theta] = generate_sequences_for_theta(theta, sequences_needed, seq_length, use_bos_token=True)
 else:
     print(f"\n=== Using Pre-loaded Sequences ===")
@@ -231,7 +232,7 @@ if not LOAD_FROM_CSV:
         predictions = get_autoregressive_predictions(model, sequence)
         return predictions
 
-    print(f"\n=== Computing Probability Updates ===")
+    print(f"\n=== Computing Probability Updates for Fixed Pos Embed Models ===")
     # Store results: {theta: {model_name: [avg_probs_over_sequences]}}
     probability_results = {}
 
@@ -254,7 +255,6 @@ if not LOAD_FROM_CSV:
             
             if all_predictions:
                 # Average predictions across sequences
-                # Convert to numpy array and compute mean
                 all_predictions = np.array(all_predictions)  # Shape: (num_sequences, seq_length-1)
                 avg_predictions = np.mean(all_predictions, axis=0)
                 probability_results[theta][model_name] = avg_predictions
@@ -266,7 +266,7 @@ else:
 
 #%% Save Results and Sequences to DataFrames (only if computed fresh)
 if not LOAD_FROM_CSV:
-    print(f"\n=== Saving Results and Sequences ===")
+    print(f"\n=== Saving Fixed Pos Embed Results and Sequences ===")
 
     # Create efficient nested DataFrame for probability predictions
     print("Creating nested probability predictions DataFrame...")
@@ -287,7 +287,8 @@ if not LOAD_FROM_CSV:
                     'n_heads': int(row_data['n_heads']),
                     'd_mlp': int(row_data['d_mlp']),
                     'n_layers': int(row_data['n_layers']),
-                    'log_loss_ratio': row_data['log_loss_ratio_clean']
+                    'log_loss_ratio': row_data['log_loss_ratio_clean'],
+                    'experiment_type': 'fixed_pos_embed'
                 })
 
     predictions_df = pd.DataFrame(prediction_records)
@@ -329,6 +330,7 @@ if not LOAD_FROM_CSV:
                 'num_sequences': len(all_sequences[theta]),
                 'theoretical_predictions_avg': theoretical_probs_avg.tolist(),
                 'theoretical_predictions_all': sequence_theoretical_probs_list,  # List of lists for multiple sequences
+                'experiment_type': 'fixed_pos_embed'
             })
 
     theoretical_df = pd.DataFrame(theoretical_records)
@@ -352,21 +354,22 @@ if not LOAD_FROM_CSV:
         sequence_records.append({
             'theta': theta,
             'num_sequences': len(all_sequences[theta]),
-            'sequences': sequences_list  # List of sequence dictionaries
+            'sequences': sequences_list,  # List of sequence dictionaries
+            'experiment_type': 'fixed_pos_embed'
         })
 
     sequences_df = pd.DataFrame(sequence_records)
 
-    # Save all DataFrames to the sweep results directory
-    print(f"Saving DataFrames to {SWEEP_RESULTS_DIR}...")
+    # Save all DataFrames to the results directory
+    print(f"Saving DataFrames to {FIXED_POS_RESULTS_DIR}...")
 
-    predictions_df.to_csv(os.path.join(SWEEP_RESULTS_DIR, "dimension_bottleneck_predictions.csv"), index=False)
-    theoretical_df.to_csv(os.path.join(SWEEP_RESULTS_DIR, "dimension_bottleneck_theoretical.csv"), index=False)
-    sequences_df.to_csv(os.path.join(SWEEP_RESULTS_DIR, "dimension_bottleneck_sequences.csv"), index=False)
+    predictions_df.to_csv(os.path.join(FIXED_POS_RESULTS_DIR, "fixed_pos_predictions.csv"), index=False)
+    theoretical_df.to_csv(os.path.join(FIXED_POS_RESULTS_DIR, "fixed_pos_theoretical.csv"), index=False)
+    sequences_df.to_csv(os.path.join(FIXED_POS_RESULTS_DIR, "fixed_pos_sequences.csv"), index=False)
 
-    print(f"Saved {len(prediction_records)} prediction records to dimension_bottleneck_predictions.csv")
-    print(f"Saved {len(theoretical_records)} theoretical records to dimension_bottleneck_theoretical.csv")
-    print(f"Saved {len(sequence_records)} sequence records to dimension_bottleneck_sequences.csv")
+    print(f"Saved {len(prediction_records)} prediction records to fixed_pos_predictions.csv")
+    print(f"Saved {len(theoretical_records)} theoretical records to fixed_pos_theoretical.csv")
+    print(f"Saved {len(sequence_records)} sequence records to fixed_pos_sequences.csv")
 
     # Save summary statistics
     print("Creating summary statistics...")
@@ -378,7 +381,6 @@ if not LOAD_FROM_CSV:
             row_data = selected_models[selected_models['config_name'] == model_name].iloc[0]
         
             # Calculate statistics across all theta values and positions
-            # Extract all predictions from nested structure
             all_predictions = []
             for _, row in model_data.iterrows():
                 all_predictions.extend(row['predictions'])
@@ -396,105 +398,20 @@ if not LOAD_FROM_CSV:
                 'min_predicted_prob': np.min(all_predictions),
                 'max_predicted_prob': np.max(all_predictions),
                 'num_predictions': len(all_predictions),
-                'num_theta_values': len(model_data)
+                'num_theta_values': len(model_data),
+                'experiment_type': 'fixed_pos_embed'
             })
 
     summary_df = pd.DataFrame(summary_stats)
-    summary_df.to_csv(os.path.join(SWEEP_RESULTS_DIR, "dimension_bottleneck_summary.csv"), index=False)
-    print(f"Saved summary statistics to dimension_bottleneck_summary.csv")
+    summary_df.to_csv(os.path.join(FIXED_POS_RESULTS_DIR, "fixed_pos_summary.csv"), index=False)
+    print(f"Saved summary statistics to fixed_pos_summary.csv")
 
-    # Save helper functions for working with nested data
-    helper_code = '''
-    # Helper functions for working with nested DataFrame structure
-
-    import pandas as pd
-    import numpy as np
-
-    def expand_predictions_df(df):
-        """
-        Expand nested predictions DataFrame to long format.
-    
-        Args:
-            df: DataFrame with 'predictions' column containing lists
-        
-        Returns:
-            DataFrame in long format with one row per (theta, model, position)
-        """
-        expanded_records = []
-        for _, row in df.iterrows():
-            for position, prob in enumerate(row['predictions'], 1):
-                expanded_records.append({
-                    'theta': row['theta'],
-                    'model_name': row['model_name'],
-                    'position': position,
-                    'predicted_probability': prob,
-                    'd_model': row['d_model'],
-                    'd_head': row['d_head'],
-                    'n_heads': row['n_heads'],
-                    'd_mlp': row['d_mlp'],
-                    'n_layers': row['n_layers'],
-                    'log_loss_ratio': row['log_loss_ratio']
-                })
-        return pd.DataFrame(expanded_records)
-
-    def expand_theoretical_df(df):
-        """
-        Expand nested theoretical DataFrame to long format.
-    
-        Args:
-            df: DataFrame with 'theoretical_predictions_avg' column containing lists
-        
-        Returns:
-            DataFrame in long format with one row per (theta, position)
-        """
-        expanded_records = []
-        for _, row in df.iterrows():
-            for position, prob in enumerate(row['theoretical_predictions_avg'], 1):
-                expanded_records.append({
-                    'theta': row['theta'],
-                    'position': position,
-                    'theoretical_probability': prob
-                })
-        return pd.DataFrame(expanded_records)
-
-    def expand_sequences_df(df):
-        """
-        Expand nested sequences DataFrame to long format.
-    
-        Args:
-            df: DataFrame with 'sequences' column containing lists of dicts
-        
-        Returns:
-            DataFrame in long format with one row per sequence
-        """
-        expanded_records = []
-        for _, row in df.iterrows():
-            for seq_dict in row['sequences']:
-                expanded_records.append({
-                    'theta': row['theta'],
-                    'sequence_idx': seq_dict['sequence_idx'],
-                    'sequence_length': seq_dict['sequence_length'],
-                    'sequence': seq_dict['sequence'],
-                    'num_ones': seq_dict['num_ones'],
-                    'num_zeros': seq_dict['num_zeros'],
-                    'empirical_probability': seq_dict['empirical_probability']
-                })
-        return pd.DataFrame(expanded_records)
-
-    # Example usage:
-    # predictions_df = pd.read_csv('dimension_bottleneck_predictions.csv')
-    # predictions_long = expand_predictions_df(predictions_df)
-    '''
-
-    with open(os.path.join(SWEEP_RESULTS_DIR, "data_helpers.py"), 'w') as f:
-        f.write(helper_code)
-    print("Saved helper functions to data_helpers.py")
 else:
     print(f"\n=== Using Pre-loaded DataFrames ===")
     print("DataFrames already loaded from CSV files")
 
 #%% Create Interactive Plots with Plotly
-print(f"\n=== Creating Interactive Plots ===")
+print(f"\n=== Creating Interactive Plots for Fixed Pos Embed Models ===")
 
 # Create individual plots for each theta value
 def create_interactive_plot_for_theta(theta, save_html=True):
@@ -506,8 +423,8 @@ def create_interactive_plot_for_theta(theta, save_html=True):
     
     # Sort models by architectural parameters (d_model, d_head, d_mlp)
     def sort_key(model_name):
-        # Extract d_model, d_head, d_mlp from model name like "d8_h4_mlp128"
-        parts = model_name.split('_')
+        # Extract d_model, d_head, d_mlp from model name like "fixed_pos_d4_h2_mlp16"
+        parts = model_name.replace('fixed_pos_', '').split('_')
         d_model = int(parts[0][1:])  # Remove 'd' prefix
         d_head = int(parts[1][1:])   # Remove 'h' prefix  
         d_mlp = int(parts[2][3:])    # Remove 'mlp' prefix
@@ -545,8 +462,6 @@ def create_interactive_plot_for_theta(theta, save_html=True):
             ))
     
     # Add theoretical Bayesian updating line
-    # For Bayesian updating with Beta(1,1) prior
-    # Compute theoretical updates for the same sequences used for model predictions
     all_theoretical_probs = []
     for sequence in all_sequences[theta]:
         sequence_theoretical_probs = []
@@ -557,7 +472,6 @@ def create_interactive_plot_for_theta(theta, save_html=True):
         # Start from position 1 (first actual data token) and predict from position 2 onwards
         for pos in range(2, len(sequence)):
             # Update posterior based on observed token at position pos-1
-            # Note: sequence[pos-1] is the previous actual data token (not BOS)
             if sequence[pos-1] == 1:
                 alpha += 1
             else:
@@ -569,7 +483,7 @@ def create_interactive_plot_for_theta(theta, save_html=True):
         
         all_theoretical_probs.append(sequence_theoretical_probs)
     
-    # Average theoretical probabilities across sequences (same as done for model predictions)
+    # Average theoretical probabilities across sequences
     theoretical_probs = np.mean(all_theoretical_probs, axis=0)
     positions = np.arange(1, len(theoretical_probs) + 1)
     
@@ -589,7 +503,7 @@ def create_interactive_plot_for_theta(theta, save_html=True):
         sequences_text += " (deterministic case)"
     
     fig.update_layout(
-        title=f'Probability Updates for θ = {theta:.1f}<br>Average over {sequences_text}',
+        title=f'Fixed Pos Embed: Probability Updates for θ = {theta:.1f}<br>Average over {sequences_text}',
         xaxis_title='Position in Sequence',
         yaxis_title='Predicted Probability of Next Token = 1',
         hovermode='closest',
@@ -608,7 +522,7 @@ def create_interactive_plot_for_theta(theta, save_html=True):
                   annotation_text=f"True θ = {theta:.1f}")
     
     if save_html:
-        filename = f"probability_updates_theta_{theta:.1f}.html"
+        filename = f"fixed_pos_probability_updates_theta_{theta:.1f}.html"
         fig.write_html(filename)
         print(f"Saved plot to {filename}")
     
@@ -621,11 +535,11 @@ for theta in theta_values:
     print(f"Creating plot for theta={theta:.1f}")
     interactive_figs[theta] = create_interactive_plot_for_theta(theta, save_html=True)
 
-#%% Create Master Interactive Plot with Theta Slider
-print(f"\n=== Creating Master Interactive Plot ===")
+#%% Create Master Interactive Plot with Theta Subplots
+print(f"\n=== Creating Master Interactive Plot for Fixed Pos Embed ===")
 
 def create_master_interactive_plot():
-    """Create a master plot with slider to toggle between theta values."""
+    """Create a master plot with subplots for all theta values."""
     
     # Calculate optimal grid layout for theta values
     n_theta = len(theta_values)
@@ -653,10 +567,9 @@ def create_master_interactive_plot():
         if theta in probability_results:
             all_model_names.update(probability_results[theta].keys())
     
-    # Sort models by architectural parameters (d_model, d_head, d_mlp)
+    # Sort models by architectural parameters
     def sort_key(model_name):
-        # Extract d_model, d_head, d_mlp from model name like "d8_h4_mlp128"
-        parts = model_name.split('_')
+        parts = model_name.replace('fixed_pos_', '').split('_')
         d_model = int(parts[0][1:])  # Remove 'd' prefix
         d_head = int(parts[1][1:])   # Remove 'h' prefix  
         d_mlp = int(parts[2][3:])    # Remove 'mlp' prefix
@@ -664,9 +577,8 @@ def create_master_interactive_plot():
     
     all_model_names = sorted(list(all_model_names), key=sort_key)
     
-    # Color palette for models - extend with additional color palettes if needed
+    # Color palette for models
     colors = px.colors.qualitative.Set1 + px.colors.qualitative.Set2 + px.colors.qualitative.Set3
-    # Ensure we have enough colors for all models
     if len(all_model_names) > len(colors):
         colors = colors * (len(all_model_names) // len(colors) + 1)
     
@@ -702,30 +614,23 @@ def create_master_interactive_plot():
                 )
         
         # Add theoretical Bayesian updating line for each subplot
-        # Compute theoretical updates for the same sequences used for model predictions
         all_theoretical_probs = []
         for sequence in all_sequences[theta]:
             sequence_theoretical_probs = []
-            # Start with Beta(1,1) prior: alpha=1, beta=1
             alpha, beta = 1, 1
             
-            # Account for BOS token at position 0 (token ID 2)
-            # Start from position 1 (first actual data token) and predict from position 2 onwards
             for pos in range(2, len(sequence)):
-                # Update posterior based on observed token at position pos-1
-                # Note: sequence[pos-1] is the previous actual data token (not BOS)
                 if sequence[pos-1] == 1:
                     alpha += 1
                 else:
                     beta += 1
                 
-                # Posterior mean for Beta(alpha, beta) is alpha / (alpha + beta)
                 posterior_mean = alpha / (alpha + beta)
                 sequence_theoretical_probs.append(posterior_mean)
             
             all_theoretical_probs.append(sequence_theoretical_probs)
         
-        # Average theoretical probabilities across sequences (same as done for model predictions)
+        # Average theoretical probabilities across sequences
         if all_theoretical_probs:
             theoretical_probs = np.mean(all_theoretical_probs, axis=0)
             positions = np.arange(1, len(theoretical_probs) + 1)
@@ -749,7 +654,7 @@ def create_master_interactive_plot():
                       row=row, col=col, opacity=0.7)
     
     fig.update_layout(
-        title='Probability Updates Across Different θ Values<br>Models from Dimension Sweep Training',
+        title='Fixed Positional Embedding: Probability Updates Across Different θ Values<br>Models with Fixed Position Encoding in Last Dimension',
         height=900,
         width=1200,
         hovermode='closest'
@@ -758,14 +663,13 @@ def create_master_interactive_plot():
     # Update all subplot axes
     for i in range(1, rows + 1):
         for j in range(1, cols + 1):
-            # Only update if subplot exists (handles cases where grid has empty cells)
             subplot_index = (i - 1) * cols + (j - 1)
             if subplot_index < len(theta_values):
                 fig.update_xaxes(title_text='Position in Sequence', row=i, col=j)
                 fig.update_yaxes(title_text='Prob(next=1)', row=i, col=j)
     
-    fig.write_html("master_probability_updates.html")
-    print("Saved master plot to master_probability_updates.html")
+    fig.write_html("fixed_pos_master_probability_updates.html")
+    print("Saved master plot to fixed_pos_master_probability_updates.html")
     fig.show()
     return fig
 
@@ -773,12 +677,12 @@ master_fig = create_master_interactive_plot()
 
 #%% Summary Analysis
 print(f"""
-=== Dimension Bottleneck Analysis Summary ===
+=== Fixed Positional Embedding Analysis Summary ===
 
-Loaded Models from Dimension Sweep:
+Loaded Models with Fixed Positional Embeddings:
 """)
 for _, row in selected_models.iterrows():
-    print(f"{row['config_name']:15s}: d_model={row['d_model']}, d_head={row['d_head']}, d_mlp={row['d_mlp']}, ratio={row['log_loss_ratio_clean']:.4f}")
+    print(f"{row['config_name']:25s}: d_model={row['d_model']}, d_head={row['d_head']}, d_mlp={row['d_mlp']}, ratio={row['log_loss_ratio_clean']:.4f}")
 
 # Calculate total sequences accounting for edge cases
 total_sequences = sum(len(all_sequences[theta]) for theta in theta_values)
@@ -789,20 +693,21 @@ Theta values: {[f"{t:.1f}" for t in theta_values]}
 - Edge cases (θ=0.0, 1.0): 1 sequence each (deterministic)
 
 Key Findings:
-- Interactive plots show how different architectures handle probability updating
-- Models with lower log-loss ratios should track theoretical Bayesian updating better
-- Edge cases (θ=0,1) provide insight into deterministic behavior
+- Interactive plots show how models with FIXED positional embeddings handle probability updating
+- Fixed positional embeddings increment by 1 in the last dimension (d_model dimension)
+- All other embedding dimensions are set to 0
+- Positional embeddings are non-trainable (gradients switched off)
+- Models focus on d_model=4 to understand the impact of this constraint
 - Theoretical Bayesian lines (red dashed) provide ground truth for comparison
 - HTML files saved for interactive exploration
 
 Files generated:
-- probability_updates_theta_X.X.html (individual plots for each theta with theoretical lines)
-- master_probability_updates.html (overview of all theta values with theoretical lines)
-- dimension_bottleneck_predictions.csv (NESTED: model predictions arrays by theta/model)
-- dimension_bottleneck_theoretical.csv (NESTED: theoretical predictions by theta)
-- dimension_bottleneck_sequences.csv (NESTED: all sequences grouped by theta)
-- dimension_bottleneck_summary.csv (summary statistics by model)
-- data_helpers.py (functions to expand nested DataFrames to long format)
+- fixed_pos_probability_updates_theta_X.X.html (individual plots for each theta)
+- fixed_pos_master_probability_updates.html (overview of all theta values)
+- fixed_pos_predictions.csv (NESTED: model predictions arrays by theta/model)
+- fixed_pos_theoretical.csv (NESTED: theoretical predictions by theta)
+- fixed_pos_sequences.csv (NESTED: all sequences grouped by theta)
+- fixed_pos_summary.csv (summary statistics by model)
 
 Data Structure:
 - Predictions DF: {len(predictions_df)} rows (one per model-theta combination)
@@ -810,7 +715,10 @@ Data Structure:
 - Sequences DF: {len(sequences_df)} rows (one per theta)
 - Summary DF: {len(summary_df)} rows (one per model)
 
-This nested structure dramatically reduces file size and redundancy while maintaining
-all information. Use data_helpers.py functions to expand to long format when needed.
+This experiment tests whether constraining positional embeddings to a single dimension
+affects the model's ability to perform Bayesian updating compared to the baseline models
+from the dimension sweep training.
 """)
+# %%
+model_names
 # %%
