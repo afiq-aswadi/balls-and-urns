@@ -24,7 +24,6 @@ def filter_checkpoints_by_config(ckpt_paths: list, exp_cfg: ExperimentConfig, se
                 mc.get("d_head") == exp_cfg.model_config.d_head and
                 mc.get("n_layers") == exp_cfg.model_config.n_layers and
                 mc.get("use_bos_token") == exp_cfg.model_config.use_bos_token and
-                mc.get("use_pos_embed") == exp_cfg.model_config.use_pos_embed and
                 mc.get("attn_only") == exp_cfg.model_config.attn_only and
                 mc.get("d_mlp") == exp_cfg.model_config.d_mlp
             ):

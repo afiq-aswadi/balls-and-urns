@@ -26,7 +26,7 @@ from exp_08_config import (
 )
 
 
-def build_probe_batch(seq_length: int, use_bos: bool) -> torch.Tensor:
+def build_probe_batch(seq_length: int, use_bos: bool, last_token: int = None) -> torch.Tensor:
     """Build probe batch for analysis.""" #TODO: seems add bos token messes up with seq_length?
     # Lower triangular ones (ensure last token is 0 by excluding the all-ones row)
     lower_full = torch.tril(torch.ones((seq_length, seq_length), dtype=torch.long))

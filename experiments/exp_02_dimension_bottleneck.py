@@ -43,7 +43,7 @@ NUM_SELECTED_MODELS = 6  # Number of models to select if USE_ALL_MODELS is False
 SELECTION_CRITERION = 'log_loss_ratio_clean'  # Metric to use for model selection
 
 # Load the dimension sweep results
-SWEEP_RESULTS_DIR = "/Users/afiqabdillah/balls-and-urns/experiments/dimension_sweep_results_20250807_131232"
+SWEEP_RESULTS_DIR = "/Users/afiqabdillah/balls-and-urns/experiments/dimension_sweep_results_20250921_122859"
 
 if LOAD_FROM_CSV:
     print("=== Loading Data from CSV Files ===")

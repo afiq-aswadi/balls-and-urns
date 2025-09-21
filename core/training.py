@@ -160,7 +160,7 @@ def save_model_with_config(model: torch.nn.Module, config: ExperimentConfig,
     
     if model_cfg.use_bos_token:
         filename_parts.append("bos")
-    if not model_cfg.use_pos_embed:
+    if model_cfg.pos_embed_config is None:
         filename_parts.append("nopos")
     if model_cfg.attn_only:
         filename_parts.append("attnonly")

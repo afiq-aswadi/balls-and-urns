@@ -17,7 +17,7 @@ from core.config import PERMUTATION_CONFIG
 from core.training import train_coinformer_model, save_model_with_config
 from core.samplers import generate_all_binary_sequences_with_fixed_num_ones
 from core.plotting import plot_residual_cosine_similarity
-from utils import flip_batch, get_residual_cosine_similarity
+from core.utils import flip_batch, get_residual_cosine_similarity
 
 #%% Configuration
 config = PERMUTATION_CONFIG
@@ -74,28 +74,6 @@ for num_ones in num_ones_values:
         'mean_similarity': np.mean(cos_sim_matrix[np.triu_indices_from(cos_sim_matrix, k=1)]),
         'std_similarity': np.std(cos_sim_matrix[np.triu_indices_from(cos_sim_matrix, k=1)]),
     }
-
-#%% Analyze permutation invariance across different num_ones
-plt.figure(figsize=(12, 8))
-mean_sims = []
-std_sims = []
-valid_num_ones = []
-
-for num_ones in num_ones_values:
-    if num_ones in all_results:
-        valid_num_ones.append(num_ones)
-        mean_sims.append(all_results[num_ones]['mean_similarity'])
-        std_sims.append(all_results[num_ones]['std_similarity'])
-
-plt.errorbar(valid_num_ones, mean_sims, yerr=std_sims, 
-             marker='o', capsize=5, capthick=2, linewidth=2)
-plt.xlabel('Number of Ones in Sequence')
-plt.ylabel('Mean Cosine Similarity')
-plt.title('Permutation Invariance: Similarity vs Number of Ones')
-plt.grid(True, alpha=0.3)
-plt.axhline(y=1.0, color='r', linestyle='--', alpha=0.5, label='Perfect Invariance')
-plt.legend()
-plt.show()
 
 #%% Test original vs flipped sequences
 print("\n=== Testing Original vs Flipped Sequences ===")
@@ -169,46 +147,3 @@ if num_ones in all_results:
     print(f"  Std: {cross_similarity_block.std():.4f}")
     print(f"  Min: {cross_similarity_block.min():.4f}")
     print(f"  Max: {cross_similarity_block.max():.4f}")
-
-#%% Analyze invariance quality
-print(f"\n=== Permutation Invariance Analysis ===")
-
-invariance_scores = {}
-for num_ones, results in all_results.items():
-    mean_sim = results['mean_similarity']
-    std_sim = results['std_similarity']
-    
-    # Invariance quality score (higher mean similarity with lower variance is better)
-    invariance_score = mean_sim - std_sim  # Simple scoring function
-    invariance_scores[num_ones] = invariance_score
-    
-    print(f"Num ones: {num_ones:2d} | Mean sim: {mean_sim:.4f} | Std: {std_sim:.4f} | Score: {invariance_score:.4f}")
-
-# Find best and worst cases
-best_invariance = max(invariance_scores.items(), key=lambda x: x[1])
-worst_invariance = min(invariance_scores.items(), key=lambda x: x[1])
-
-print(f"\nBest invariance: {best_invariance[0]} ones (score: {best_invariance[1]:.4f})")
-print(f"Worst invariance: {worst_invariance[0]} ones (score: {worst_invariance[1]:.4f})")
-
-#%% Summary
-print(f"""
-=== Permutation Invariance Summary ===
-
-Model: d_model={config.model_config.d_model}, trained for {config.num_epochs} epochs
-Sequence length: {seq_length}
-Use BOS token: {config.model_config.use_bos_token}
-
-Key Findings:
-- Tested {len(all_results)} different numbers of ones
-- Mean cosine similarities range: {min(mean_sims):.4f} to {max(mean_sims):.4f}
-- Permutation invariance quality varies with number of ones
-- Cross-similarity (original vs flipped) provides additional validation
-
-Expected behavior for Bayesian updating:
-- High cosine similarity (>0.9) for sequences with same number of ones
-- Similar similarity values across different numbers of ones
-- Consistent behavior between original and flipped sequences
-
-Results suggest {'strong' if min(mean_sims) > 0.9 else 'weak' if min(mean_sims) > 0.7 else 'poor'} permutation invariance.
-""")

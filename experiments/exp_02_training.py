@@ -393,9 +393,9 @@ def print_best_configurations(results, top_k=5):
 
 if __name__ == "__main__":
     # Define dimension ranges to explore
-    d_model_values = [2,3,4]
+    d_model_values = [2]
     d_head_values = [1,2] 
-    d_mlp_values = [32,64,128]
+    d_mlp_values = [32,64]
     
     # Create configurations
     configs = create_dimension_configs(

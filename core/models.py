@@ -3,7 +3,7 @@ Model architectures and configurations for coinformer experiments.
 """
 import torch
 import transformer_lens
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 from enum import Enum
 import math
@@ -39,14 +39,10 @@ class ModelConfig:
     
     # Vocabulary and embedding options
     use_bos_token: bool = False  # If True, d_vocab=3 (BOS,0,1); if False, d_vocab=2 (0,1)
-    pos_embed_config: Optional[PosEmbedConfig] = None  # None means no pos embeds
+    pos_embed_config: Optional[PosEmbedConfig] = field(default_factory=PosEmbedConfig)  # None means no pos embeds
     
     # Normalization
     normalization_type: Optional[str] = None
-    
-    def __post_init__(self):
-        if self.pos_embed_config is None:
-            self.pos_embed_config = PosEmbedConfig()  # Default to learned embeddings
     
     @property
     def d_vocab(self) -> int:
@@ -55,11 +51,14 @@ class ModelConfig:
     
     def to_transformer_lens_config(self) -> transformer_lens.HookedTransformerConfig:
         """Convert to transformer_lens configuration."""
+        # Provide explicit fallbacks expected by TransformerLens
+        computed_n_heads = self.n_heads if self.n_heads is not None else (self.d_model // self.d_head)
+        computed_d_mlp = self.d_mlp if self.d_mlp is not None else (4 * self.d_model)
         return transformer_lens.HookedTransformerConfig(
             d_model=self.d_model,
             d_head=self.d_head,
-            n_heads=self.n_heads,  # Will default to d_model // d_head if None
-            d_mlp=self.d_mlp,  # Will default to 4 * d_model if None
+            n_heads=computed_n_heads,
+            d_mlp=computed_d_mlp,
             n_layers=self.n_layers,
             n_ctx=self.n_ctx,
             d_vocab=self.d_vocab,

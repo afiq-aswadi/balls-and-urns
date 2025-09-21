@@ -16,7 +16,7 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 from core.config import ExperimentConfig, ModelConfig
 from core.training import calculate_optimal_loss
-from core.models import create_coinformer_model
+from core.models import create_coinformer_model, PosEmbedConfig, PosEmbedType
 from core.samplers import generate_data, generate_sequential_ones, add_bos_token
 from core.utils import get_autoregressive_predictions
 
@@ -34,6 +34,7 @@ model_config = ModelConfig(
     d_mlp=32,
     n_layers=1,
     n_ctx = 5,
+    pos_embed_config=None,
     use_bos_token=True)
 
 #%% Training setup and loop (single small transformer, save checkpoint each epoch)
@@ -130,7 +131,7 @@ def train_single_model_and_checkpoint(config: ExperimentConfig, checkpoint_dir: 
                     "d_mlp": cfg0.d_mlp,
                     "n_layers": cfg0.n_layers,
                     "use_bos_token": cfg0.use_bos_token,
-                    "use_pos_embed": cfg0.use_pos_embed,
+                    "pos_embed_config": cfg0.pos_embed_config,
                     "attn_only": cfg0.attn_only,
                 },
             },
@@ -202,7 +203,7 @@ def train_single_model_and_checkpoint(config: ExperimentConfig, checkpoint_dir: 
                     "d_mlp": cfg.d_mlp,
                     "n_layers": cfg.n_layers,
                     "use_bos_token": cfg.use_bos_token,
-                    "use_pos_embed": cfg.use_pos_embed,
+                    "pos_embed_config": cfg.pos_embed_config,
                     "attn_only": cfg.attn_only,
                 },
             },
@@ -264,7 +265,6 @@ if __name__ == "__main__":
                     mc.get("d_head") == exp_cfg.model_config.d_head and
                     mc.get("n_layers") == exp_cfg.model_config.n_layers and
                     mc.get("use_bos_token") == exp_cfg.model_config.use_bos_token and
-                    mc.get("use_pos_embed") == exp_cfg.model_config.use_pos_embed and
                     mc.get("attn_only") == exp_cfg.model_config.attn_only and
                     mc.get("d_mlp") == exp_cfg.model_config.d_mlp
                 ):
@@ -694,12 +694,16 @@ if __name__ == "__main__":
     ckpts = filter_checkpoints_by_config(all_ckpts, exp_config, SEED)
     if len(ckpts) != len(all_ckpts):
         print(f"Filtered checkpoints: using {len(ckpts)} of {len(all_ckpts)} that match current config/seed.")
+
+    title_suffix = build_title_suffix(exp_config)
+    emb_out = None
+    unemb_out = None
+
     if ckpts:
         df_epoch = build_epoch_dataframe(ckpts, exp_config.model_config)
         df_path = os.path.join(EXP_RESULTS_DIR, "epochwise_data.csv")
         df_epoch.to_csv(df_path, index=False)
         print(f"Saved epoch dataframe to {df_path}")
-        title_suffix = build_title_suffix(exp_config)
         plot_epoch_views(
             df_epoch,
             save_html_prefix=os.path.join(EXP_RESULTS_DIR, "residual_analysis"),
@@ -725,6 +729,8 @@ if __name__ == "__main__":
         unemb_out = os.path.join(EXP_RESULTS_DIR, "unembed_trajectories.html")
         emb_fig.write_html(emb_out)
         unemb_fig.write_html(unemb_out)
+        print(f"Saved {emb_out}")
+        print(f"Saved {unemb_out}")
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(SEED)
         # cuDNN determinism
@@ -733,13 +739,13 @@ if __name__ == "__main__":
             torch.backends.cudnn.benchmark = False
         except Exception:
             pass
+    else:
+        print("No checkpoints matched; skipping residual and token trajectory exports.")
     # PyTorch deterministic algorithms where supported
     try:
         torch.use_deterministic_algorithms(True)
     except Exception:
         pass
-    print(f"Saved {emb_out}")
-    print(f"Saved {unemb_out}")
     # Positional embeddings trajectories (limit to used positions)
     max_positions = exp_config.seq_length + (1 if exp_config.model_config.use_bos_token else 0)
     pos_df = build_positional_embed_trajectories(ckpts, exp_config.model_config, max_positions=max_positions)
