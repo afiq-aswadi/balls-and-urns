@@ -1,107 +1,59 @@
-# Coinformer Experiments
+# Study of Beta-Bernoulli Transformers
 
-This repository contains experiments on transformer models learning Bayesian updating for coin flip sequences.
+> **Note: work in progress! Code is really messy, if I were to do this again I would do it differently.**
 
-## Project Structure
 
-```
-├── core/                          # Core modules (clean, reusable)
-│   ├── models.py                  # Model architectures and configs
-│   ├── config.py                  # Experiment configurations  
-│   ├── training.py                # Training utilities
-│   ├── samplers.py                # Data generation
-│   └── plotting.py                # Visualization utilities
-├── experiments/                   # Main experiment scripts
-│   ├── exp_01_bayesian_updating.py    # Basic Bayesian updating verification
-│   ├── exp_02_dimension_bottleneck.py # Architecture analysis (d_model, d_head)
-│   ├── exp_03_permutation_invariance.py # Residual permutation invariance
-│   └── exp_04_importance_sampling.py   # Training efficiency with importance sampling
-├── utils.py                       # General utilities
-└── saved_models/                  # Saved model checkpoints
-```
+## Research Overview
 
-## Key Features
+- We study how a transformer performs Bayesian updating by training on beta-bernoulli tasks.
+- Coin probabilities are sampled from a beta prior, and the model performs next token (coinflip) prediction. 
+- We train a transformer with d_vocab = 2 (or 3, if we include the BOS token). 
 
-### Model Architecture Options
-- **Vocabulary size**: 2 (tokens: 0,1) or 3 (tokens: BOS,0,1) 
-- **Positional embeddings**: Configurable on/off
-- **Architecture variants**: Attention-only, with MLP, different layer counts
-- **Dimension analysis**: Configurable d_model and d_head for bottleneck studies
+The optimal solution the transformer has to implement is 
 
-### Experiment Configurations
-Each experiment has clean, dataclass-based configurations for:
-- Model architecture parameters
-- Training hyperparameters  
-- Prior distribution parameters (α, β)
-- Importance sampling settings
-- BOS token and positional embedding options
+$$p(\text{next coin} = 1 | \text{observations}) = \frac{H + \alpha}{N + \alpha + \beta}$$
 
-## Running Experiments
+- The optimal solution is determined by the sufficient statistics of the data $(H,N)$. One question we asked was if we could probe for the model storing the sufficient statistics somehow. 
+- We were also interested in 1. whether model predictions are permutation invariant for sequences with the same number of 1s, and 2. whether model predictions are symmetric for flipped sequences. 
+- Models trained using transformerlens, see `core/models.py`.
+- To ease mechanistic studies, we bottleneck the model's dimensionality (attention head dimension 1, residual dimension 2, mlp dimension 16), and play around with fixing the positional embeddings.
 
-Each experiment script is self-contained with `#%%` cell structure for interactive execution:
 
-```python
-# Example: Run basic Bayesian updating experiment
-python experiments/exp_01_bayesian_updating.py
+### (Preliminary) Results
 
-# Or run interactively in your IDE with cell execution
-```
+- We find that the transformer manages to implement permutation invariance very well, though we note that the final observation in the sequence (that is, the current token) plays a special role in the residual vector. This makes sense as the embedding of the current token is the input to the residual stream.
 
-### Experiment 1: Bayesian Updating
-Tests whether the model learns proper Bayesian posterior updating by comparing predictions against theoretical values.
+![Residual Cosine Similarity](figures/residual_cos_sim.png)
 
-### Experiment 2: Dimension Bottleneck  
-Analyzes how different architectural choices (d_model, d_head) affect Bayesian updating performance.
+- Predictions are not exactly symmetric (note: in theory we can get perfect symmetry by taking the negative of the post_mlp residual before unembedding) 
 
-### Experiment 3: Permutation Invariance
-Tests whether residual representations are permutation invariant for sequences with the same number of 1s.
+![Model Symmetry](figures/model_symmetry.png)
 
-### Experiment 4: Importance Sampling
-Compares standard training vs importance sampling where training and evaluation distributions differ.
+- In the case where d_head = 1, we find that the attention coefficient is nearly linear with respect to $\frac{H}{N}$.
 
-## Configuration Examples
+![Cache Z vs Ratio](figures/cache_z_vs_ratio.png)
 
-```python
-from core.config import ExperimentConfig
-from core.models import ModelConfig
 
-# Basic configuration
-config = ExperimentConfig(
-    model_config=ModelConfig(d_model=64, d_head=32),
-    alpha=1.0, beta=1.0,
-    num_epochs=5, num_batches=1000
-)
-
-# BOS token configuration  
-bos_config = ExperimentConfig(
-    model_config=ModelConfig(use_bos_token=True),
-    alpha=1.0, beta=1.0
-)
-
-# Importance sampling
-importance_config = ExperimentConfig(
-    importance_sampling=True,
-    alpha=1.0, beta=1.0,  # Proposal distribution
-    importance_sampling_alpha=1.0,  # Target distribution 
-    importance_sampling_beta=8.0
-)
-```
-
-## Model Saving/Loading
-
-Models are automatically saved with descriptive filenames including architecture and training parameters:
+## 📁 Project Structure
 
 ```
-bayesian_updating_dmodel64_dhead32_layers2_alpha1.0_beta1.0.pt
-importance_sampling_dmodel64_dhead32_layers2_alpha1.0_beta1.0_importance.pt
+├── core/                       # Core model implementations and utilities
+│   ├── config.py               # Model and training configurations
+│   ├── models.py               # Transformer model implementations
+│   ├── training.py             # Training loop and utilities
+│   ├── samplers.py             # Data sampling and task generation
+│   ├── plotting.py             # Visualization utilities
+│   └── utils.py                # General utility functions
+├── experiments/                # Research experiments and analysis
+│   ├── exp_*.py                # Individual experiments
+│   └── saved_models/           # Saved model checkpoints
+├── figures/                    # Generated plots and visualizations
+├── results/                    # Experiment results organized by type
+├── archive/                    # Archived experiments and old code
+├── html/                       # HTML output files
 ```
 
-## Legacy Files
 
-The original experiment files remain for reference but the new structure provides:
-- ✅ No duplicate code
-- ✅ Clean separation of concerns  
-- ✅ Consistent #%% structure
-- ✅ BOS token support
-- ✅ Configurable architectures
-- ✅ ML experiment best practices
+### Running Experiments
+
+Experiments are designed to run as notebook-style scripts using `#%%` separators in VSCode.
