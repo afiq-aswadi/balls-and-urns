@@ -11,9 +11,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
 from core.config import BAYESIAN_UPDATING_CONFIG
 from core.training import train_coinformer_model, save_model_with_config
-from core.samplers import generate_data_with_p_list
+from core.samplers import generate_data_with_p_list, generate_sequential_ones
 from core.plotting import (
     plot_probability_diff_surface, plot_probability_diff,
     plot_kl_divergence, plot_kl_divergence_surface,
@@ -113,6 +114,38 @@ visualize_attention_patterns(
     seq_length=20
 )
 
+#%%
+data = generate_sequential_ones(10, use_bos_token=False)
+
+#%% Symmetry check on constant sequences
+print("Checking model symmetry on all-zeros and all-ones sequences...")
+
+model.eval()
+device = next(model.parameters()).device
+
+all_ones_seq = torch.ones((1, config.seq_length), dtype=torch.long, device=device)
+all_zeros_seq = torch.zeros_like(all_ones_seq)
+
+with torch.inference_mode():
+    logits_all_ones = model(all_ones_seq)
+    logits_all_zeros = model(all_zeros_seq)
+
+probs_all_ones = torch.softmax(logits_all_ones, dim=-1)[0, 1:, 1].cpu().numpy()
+probs_all_zeros = torch.softmax(logits_all_zeros, dim=-1)[0, 1:, 1].cpu().numpy()
+positions = np.arange(1, config.seq_length)
+
+plt.figure(figsize=(8, 4))
+plt.plot(positions, probs_all_ones, label='All ones sequence', linewidth=2)
+plt.plot(positions, probs_all_zeros, label='All zeros sequence', linewidth=2, linestyle='--')
+plt.xlabel('Sequence Position')
+plt.ylabel('P(next token = 1)')
+plt.title('Model predictions on constant sequences')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+
 #%% Save model
 save_path = save_model_with_config(model, config, "bayesian_updating")
 print(f"Model saved to: {save_path}")
@@ -132,3 +165,4 @@ The model should show:
 2. KL divergence decreasing over sequence length
 3. Log loss ratio approaching 1.0
 """)
+# %%

@@ -178,8 +178,9 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# html plots
+# html plots and output folder
 *.html
+html/
 
 # results files
 *results*/
