@@ -1,6 +1,6 @@
 # Study of Beta-Bernoulli Transformers
 
-> **Note: work in progress! Code is really messy, if I were to do this again I would do it differently.**
+> **Note: work in progress! Code is really messy, if I were to do this again I would do it differently. The following README was written with AI assistance and not intended to represent my writing style.**
 
 
 ## Research Overview
